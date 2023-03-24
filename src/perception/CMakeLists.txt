@@ -1,4 +1,10 @@
 cmake_minimum_required(VERSION 2.8.3)
+
+add_definitions(-std=c++14)
+
+set(CXX_FLAGS "-Wall")
+set(CMAKE_CXX_FLAGS, "${CXX_FLAGS}")
+
 project(perception_lidar)
 
 # note major changes:
@@ -27,30 +33,40 @@ find_package(catkin REQUIRED COMPONENTS
 	pcl_ros
 )
 
+find_package(PCL 1.7 REQUIRED)
 
-find_file(TF2_CPP_HEADERS
-        NAMES tf2_geometry_msgs.hpp
-        PATHS ${tf2_geometry_msgs_INCLUDE_DIRS}
-        NO_CACHE
-        PATH_SUFFIXES tf2_geometry_msgs
-        )
+include_directories(${roslib_INCLUDE_DIRS})
+
+include_directories(
+${catkin_INCLUDE_DIRS}
+# ${PCL_INCLUDE_DIRS}
+# ${catkin_INCLUDE_DIRS}/include/**
+)
+
+catkin_package(
+        INCLUDE_DIRS  ${catkin_INCLUDE_DIRS} ${PCL_INCLUDE_DIRS} ${roslib_INCLUDE_DIRS}
+#  LIBRARIES vmxpi_ros_bringup
+	CATKIN_DEPENDS  roscpp rospy pcl_conversions pcl_ros
+#	DEPENDS system_lib
+)
 
 
 
-#find_package(PCL 1.7.4 REQUIRED)
-include_directories(${PCL_INCLUDE_DIRS})
+
+# find_file(TF2_CPP_HEADERS
+#         NAMES tf2_geometry_msgs.hpp
+#         PATHS ${tf2_geometry_msgs_INCLUDE_DIRS}
+#         NO_CACHE
+#         PATH_SUFFIXES tf2_geometry_msgs
+#         )
+
+
+
+
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
 add_executable(intensity_filter src/intensity_filter.cpp)
-add_dependencies(intensity_filter 
-
-
-
-
-
-
-std_msgs sensor_msgs)
 target_link_libraries(intensity_filter 
 ${catkin_LIBRARIES}
 ${roslib_LIBRARIES}
@@ -58,7 +74,6 @@ ${PCL_LIBRARIES}
 )
 
 add_executable(planar_filter src/planar_filter.cpp)
-add_dependencies(planar_filter roscpp std_msgs sensor_msgs) # rclcpp does not exsist in ros1 need similar functionality
 target_link_libraries(planar_filter
 ${catkin_LIBRARIES}
 ${roslib_LIBRARIES}
@@ -66,18 +81,11 @@ ${PCL_LIBRARIES}
 )
 
 add_executable(polygon_filter src/polygon_filter.cpp)
-add_dependencies(polygon_filter
-        roscpp # rclcpp does not exsist in ros1 need similar functionality
-        std_msgs
-        sensor_msgs
-        tf2
-        tf2_geometry_msgs
-        tf2_ros
-        )
 target_link_libraries(polygon_filter
 ${catkin_LIBRARIES}
 ${roslib_LIBRARIES}
-${PCL_LIBRARIES})
+${PCL_LIBRARIES}
+)
 
 install(
     TARGETS
@@ -120,11 +128,4 @@ install(DIRECTORY launch
 #endif()
 
 #ament_package()
-catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES vmxpi_ros_bringup
-	CATKIN_DEPENDS roscpp 
-		       rospy 
-		       pcl_conversions
-#	DEPENDS system_lib
-)
+

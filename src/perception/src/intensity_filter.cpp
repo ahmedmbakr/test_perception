@@ -10,9 +10,9 @@
 #include <pcl/filters/passthrough.h>
 
 // ROS
-#include "ros/ros.hpp"
-#include "std_msgs/msg/string.hpp"
-#include "sensor_msgs/msg/point_cloud2.hpp"
+#include "ros/ros.h"
+#include "std_msgs/String.h"
+#include "sensor_msgs/PointCloud2.h"
 #include "pcl_conversions/pcl_conversions.h"
 
 using namespace std::chrono_literals;

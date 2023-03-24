@@ -20,10 +20,10 @@
 #include <pcl/filters/extract_indices.h>
 
 // ROS
-#include "roscpp/roscpp.hpp"
-#include "std_msgs/msg/string.hpp"
-#include "sensor_msgs/msg/point_cloud2.hpp"
-#include "geometry_msgs/msg/pose_stamped.hpp"
+#include "ros/ros.h"
+#include "std_msgs/String.h"
+#include "sensor_msgs/PointCloud2.h"
+#include "geometry_msgs/PoseStamped.h"
 #include "pcl_conversions/pcl_conversions.h"
 
 using namespace std::chrono_literals;
