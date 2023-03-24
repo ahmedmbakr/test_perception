@@ -5,6 +5,7 @@
   <version>0.0.1</version>
   <description>Perception stack with the LiDAR</description>
   <maintainer email="mmcvicker@crimson.ua.edu">mason</maintainer>
+  <maintainer email="ambakr@crimson.ua.edu">abakr</maintainer>
   <license>Just Internal LOL</license>
 
   <buildtool_depend>catkin</buildtool_depend>
