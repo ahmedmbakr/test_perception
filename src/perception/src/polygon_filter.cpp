@@ -25,7 +25,7 @@
 #include "sensor_msgs/PointCloud2.h"
 #include "pcl_conversions/pcl_conversions.h"
 
-#include <tf2_ros/create_timer_ros.h>
+// #include <tf2_ros/create_timer_ros.h>
 #include "message_filters/subscriber.h"
 #include "tf2_ros/transform_listener.h"
 #include "tf2_ros/message_filter.h"
@@ -38,39 +38,40 @@
 
 using namespace std::chrono_literals;
 
-class PlanarFilter : public  ros::NodeHandle
+class PolygonFilter : public  ros::NodeHandle
 {
 public:
-    PlanarFilter()
-        : NodeHandle("polygon_filter"),
-          _targetFrame("kart")
+    PolygonFilter()
+        : ros::NodeHandle("polygon_filter")
     {
-        this->declare_parameter<float>("lookahead_distance", 50.0);
-        this->declare_parameter<std::string>("target_frame", "kart");
-        this->get_parameter("target_frame", _targetFrame);
+        _targetFrame = "kart";
+        this->param("lookahead_distance", 50.0);
+        this->param<std::string>("target_frame", "kart");
+        this->getParam("target_frame", _targetFrame);
 
         std::chrono::duration<int> buffer_timeout(1);
 
-        _buffer = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+        //TODO: AB: Will be considred later
+        // _buffer = std::make_shared<tf2_ros::Buffer>(ros::Time::now());
 
-        auto timer_interface = std::make_shared<tf2_ros::CreateTimerROS>(
-                this->get_node_base_interface(),
-                this->get_node_timers_interface());
-        _buffer->setCreateTimerInterface(timer_interface);
-        _tf2Listener = std::make_shared<tf2_ros::TransformListener>(*_buffer);
+        // auto timer_interface = std::make_shared<tf2_ros::CreateTimerROS>(
+        //         this->get_node_base_interface(),
+        //         this->get_node_timers_interface());
+        // _buffer->setCreateTimerInterface(timer_interface);
+        // _tf2Listener = std::make_shared<tf2_ros::TransformListener>(*_buffer);
 
-        _pointCloudSub.subscribe(this, "/point_cloud_topic");
-        _tf2Filter = std::make_shared<tf2_ros::MessageFilter<sensor_msgs::msg::PointCloud2>>(
-                _pointCloudSub, *_buffer, _targetFrame, 100, this->get_node_logging_interface(),
-                this->get_node_clock_interface(), buffer_timeout);
+        // _pointCloudSub.subscribe(this, "/point_cloud_topic");
+        // _tf2Filter = std::make_shared<tf2_ros::MessageFilter<sensor_msgs::msg::PointCloud2>>(
+        //         _pointCloudSub, *_buffer, _targetFrame, 100, this->get_node_logging_interface(),
+        //         this->get_node_clock_interface(), buffer_timeout);
 
-        _tf2Filter->registerCallback(&PlanarFilter::_topic_callback, this);
+        // _tf2Filter->registerCallback(&PolygonFilter::_topic_callback, this);
 
 
 //        _subscription = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-//                "/point_cloud_topic", 10, std::bind(&PlanarFilter::_topic_callback, this, std::placeholders::_1));
+//                "/point_cloud_topic", 10, std::bind(&PolygonFilter::_topic_callback, this, std::placeholders::_1));
 
-        _publisher = this->create_publisher<sensor_msgs::msg::PointCloud2>("polygon_filtered_cloud", 10);
+        _publisher = this->advertise<sensor_msgs::PointCloud2>("polygon_filtered_cloud", 10);
 
         _boundryPoints = {
                 {0.f, -1.f},
@@ -82,16 +83,16 @@ public:
     }
 
 private:
-    ros::Subscriber<sensor_msgs::msg::PointCloud2>::SharedPtr _subscription;
-    ros::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr _publisher;
-
-    message_filters::Subscriber<sensor_msgs::msg::PointCloud2> _pointCloudSub;
+    ros::Subscriber _subscription;
+    ros::Publisher _publisher;
+    // TODO: AB: To be considered later
+    // message_filters::Subscriber<sensor_msgs::PointCloud2> _pointCloudSub;
 
     std::string _targetFrame;
-    std::shared_ptr<tf2_ros::Buffer> _buffer;
-    std::shared_ptr<tf2_ros::TransformListener> _tf2Listener;
-    std::shared_ptr<tf2_ros::MessageFilter<sensor_msgs::msg::PointCloud2>> _tf2Filter;
-
+    tf2_ros::Buffer _buffer;
+    // TODO: AB: To be considered later
+    // std::shared_ptr<tf2_ros::TransformListener> _tf2Listener;
+    // std::shared_ptr<tf2_ros::MessageFilter<sensor_msgs::PointCloud2>> _tf2Filter;
 
     // Points in the whole track // Might need a third number of how far they are along the track
     std::vector<std::pair<float, float>> _boundryPoints;
@@ -101,17 +102,17 @@ private:
 
     float _lookahead_distance;
 
-    void _topic_callback(const sensor_msgs::msg::PointCloud2::SharedPtr rosCloud)
+    void _topic_callback(const sensor_msgs::PointCloud2::ConstPtr& rosCloud)
     {
         float voxel_size;
-        this->get_parameter("lookahead_distance", _lookahead_distance);
-        this->get_parameter("voxel_size", voxel_size);
+        this->getParam("lookahead_distance", _lookahead_distance);
+        this->getParam("voxel_size", voxel_size);
 
-        ROS_INFO(this->get_logger(), "Point cloud received with  %zu points", rosCloud->data.size());
+        ROS_INFO_STREAM("Point cloud received number of points: " + rosCloud->data.size());
         pcl::PointCloud<pcl::PointXYZI>::Ptr pclCloud(new pcl::PointCloud<pcl::PointXYZI>);
         pcl::fromROSMsg(*rosCloud, *pclCloud);
 
-        geometry_msgs::msg::TransformStamped transform = _buffer->lookupTransform(_targetFrame, "velodyne", rosCloud->header.stamp);
+        geometry_msgs::TransformStamped transform = _buffer.lookupTransform(_targetFrame, "velodyne", rosCloud->header.stamp);
 
         auto t = transform.transform.translation;
         auto r = transform.transform.rotation;
@@ -145,12 +146,12 @@ private:
         extract.setNegative(false);
         extract.filter(*pclCloud);
 
-        sensor_msgs::msg::PointCloud2 rosCloud2;
+        sensor_msgs::PointCloud2 rosCloud2;
 
         pcl::toROSMsg(*pclCloud, rosCloud2);
         rosCloud2.header = rosCloud->header;
         rosCloud2.header.frame_id = _targetFrame;
-        _publisher->publish(rosCloud2);
+        _publisher.publish(rosCloud2);
     }
 
     bool test_point(const pcl::PointXYZI& point){
@@ -189,9 +190,12 @@ private:
 
 int main(int argc, char * argv[])
 {
-    ros::init(argc, argv);
+    ros::init(argc, argv, "polygon_filter");
     //rclcpp::spin(std::make_shared<MinimalPublisher>());
-    ros::spin(std::make_shared<PlanarFilter>());
+
+    // TODO: AB: To be fixed
+    // PolygonFilter polygonFilter = PolygonFilter();
+    ros::spin();
     ros::shutdown();
     return 0;
 }
