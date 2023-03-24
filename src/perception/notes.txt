@@ -1,0 +1,10 @@
+pnpoly to tell if the points are in the polygon
+    https://wrf.ecse.rpi.edu//Research/Short_Notes/pnpoly.html
+
+Should we assume the ground is flat? or that the cart is flat?
+    There is 1.631 meters of difference across the height of the track.
+    Too much? Does it matter?
+
+ About to do the polygon intersect so I can filter those points out of the LiDAR
+
+Following this for downgrade tutorial: https://github.com/ATLFlight/ros-examples - Tyler
