@@ -20,56 +20,55 @@
 #include <pcl/filters/extract_indices.h>
 
 // ROS
-#include "ros/ros.h"
-#include "std_msgs/String.h"
+#include <ros/ros.h>
+#include <std_msgs/String.h>
 #include "sensor_msgs/PointCloud2.h"
 #include "geometry_msgs/PoseStamped.h"
-#include "pcl_conversions/pcl_conversions.h"
 
 using namespace std::chrono_literals;
 
-class PlanarFilter : public  roscpp::NodeHandle
+class PlanarFilter : public  ros::NodeHandle
 {
 public:
     PlanarFilter()
-        : NodeHandle("planar_filter")
+        : ros::NodeHandle("planar_filter")
     {
-        this->declare_parameter<float>("plane_thickness_m", 0.05);
-        this->declare_parameter<float>("voxel_size", 0.05);
-        this->declare_parameter<float>("box_height", 0.3);
-        this->declare_parameter<float>("box_width", 0.91);
-        this->declare_parameter<float>("height_tolerence", 0.4);
-        this->declare_parameter<float>("width_tolerence", 1.0);
+        this->param("plane_thickness_m", 0.05);
+        this->param("voxel_size", 0.05);
+        this->param("box_height", 0.3);
+        this->param("box_width", 0.91);
+        this->param("height_tolerence", 0.4);
+        this->param("width_tolerence", 1.0);
 
-        _subscription = this->create_subscription<sensor_msgs::msg::PointCloud2>(
+        _subscription = this->subscribe<sensor_msgs::PointCloud2>(
                 "/point_cloud_topic", 10, std::bind(&PlanarFilter::_topic_callback, this, std::placeholders::_1));
 
-        _publisher = this->create_publisher<sensor_msgs::msg::PointCloud2>("plane_filtered_cloud", 10);
-        _obstacle_publisher = this->create_publisher<sensor_msgs::msg::PointCloud2>("obstacle_filtered_cloud", 10);
+        _publisher = this->advertise<sensor_msgs::PointCloud2>("plane_filtered_cloud", 10);
+        _obstacle_publisher = this->advertise<sensor_msgs::PointCloud2>("obstacle_filtered_cloud", 10);
 
-        _pose_publisher = this->create_publisher<geometry_msgs::msg::PoseStamped>("box_center_pose", 10);
+        _pose_publisher = this->advertise<geometry_msgs::PoseStamped>("box_center_pose", 10);
     }
 
 
 private:
-    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr _subscription;
-    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr _publisher;
-    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr _obstacle_publisher;
-    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr _pose_publisher;
+    ros::Subscriber _subscription;
+    ros::Publisher _publisher;
+    ros::Publisher _obstacle_publisher;
+    ros::Publisher _pose_publisher;
 
     float _box_height, _box_width, _height_tolerence, _width_tolerence;
 
-    void _topic_callback(const sensor_msgs::msg::PointCloud2::SharedPtr rosCloud)
+    void _topic_callback(const sensor_msgs::PointCloud2::ConstPtr& rosCloud)
     {
         float plane_thickness_m, voxel_size;
-        this->get_parameter("plane_thickness_m", plane_thickness_m);
-        this->get_parameter("voxel_size", voxel_size);
-        this->get_parameter("box_height", _box_height);
-        this->get_parameter("box_width", _box_width);
-        this->get_parameter("height_tolerence", _height_tolerence);
-        this->get_parameter("width_tolerence", _width_tolerence);
+        this->getParam("plane_thickness_m", plane_thickness_m);
+        this->getParam("voxel_size", voxel_size);
+        this->getParam("box_height", _box_height);
+        this->getParam("box_width", _box_width);
+        this->getParam("height_tolerence", _height_tolerence);
+        this->getParam("width_tolerence", _width_tolerence);
 
-        ROS_INFO(this->get_logger(), "There are %zu points in the cloud", rosCloud->data.size());
+        ROS_INFO_STREAM("Number of points in the cloud: "+ rosCloud->data.size());
         pcl::PointCloud<pcl::PointXYZI>::Ptr pclCloud(new pcl::PointCloud<pcl::PointXYZI>);
         pcl::PointCloud<pcl::PointXYZI>::Ptr planeCloud(new pcl::PointCloud<pcl::PointXYZI>);
         pcl::PointCloud<pcl::PointXYZI>::Ptr obstacleCloud(new pcl::PointCloud<pcl::PointXYZI>);
@@ -83,7 +82,7 @@ private:
         extract.setIndices(indices);
 //        extract.setNegative(true);
         extract.filter(*pclCloud);
-        ROS_INFO(this->get_logger(), "There are %zu points in the cloud after removing nans", pclCloud->points.size());
+        ROS_INFO_STREAM("Number of points in the cloud after removing nans: " + pclCloud->points.size());
 
         downsampleCloud(pclCloud, pclCloud, voxel_size);
 
@@ -93,9 +92,9 @@ private:
         auto test = extractObstacles(obstacleCloud, obstacleCloud, 0.1f, 50,
                          65536);
 
-        ROS_INFO(this->get_logger(), "The box is at %f, %f", test.first, test.second);
+        ROS_INFO_STREAM("The box is at:" + std::to_string(test.first) + ", " + std::to_string(test.second));
 
-        geometry_msgs::msg::PoseStamped pose;
+        geometry_msgs::PoseStamped pose;
         pose.header.frame_id = "kart";
         pose.header.stamp = rosCloud->header.stamp;
         pose.pose.position.x = test.first;
@@ -105,18 +104,18 @@ private:
         pose.pose.orientation.y = 0.0;
         pose.pose.orientation.z = 0.0;
         pose.pose.orientation.w = 1.0;
-        _pose_publisher->publish(pose);
+        _pose_publisher.publish(pose);
 
-        sensor_msgs::msg::PointCloud2 rosCloud2;
+        sensor_msgs::PointCloud2 rosCloud2;
 
         pcl::toROSMsg(*planeCloud, rosCloud2);
         rosCloud2.header = rosCloud->header;
-        _publisher->publish(rosCloud2);
+        _publisher.publish(rosCloud2);
 
-        sensor_msgs::msg::PointCloud2 rosCloud3;
+        sensor_msgs::PointCloud2 rosCloud3;
         pcl::toROSMsg(*obstacleCloud, rosCloud3);
         rosCloud3.header = rosCloud->header;
-        _obstacle_publisher->publish(rosCloud3);
+        _obstacle_publisher.publish(rosCloud3);
     }
 
     bool downsampleCloud(pcl::PointCloud<pcl::PointXYZI>::ConstPtr inputCloud,
@@ -126,7 +125,7 @@ private:
         vox.setInputCloud(inputCloud);
         vox.filter(*outputCloud);
 
-        ROS_INFO(this->get_logger(), "Downsampled cloud has %zu points", outputCloud->points.size());
+        ROS_INFO_STREAM("Downsampled cloud numb points: " + outputCloud->points.size());
 
         return true;
     }
@@ -242,7 +241,7 @@ private:
         // Extract indices from obstacle clusters
         for (auto cluster: clusters) {
             if (cluster.indices.size() < minimumObstaclePoints) {
-                ROS_INFO(this->get_logger(), "No Cludster of sufficient size found");
+                ROS_INFO_STREAM("No Cludster of sufficient size found");
             }
 
             pcl::PointCloud<pcl::PointXYZI>::Ptr obstacleCluster(new pcl::PointCloud<pcl::PointXYZI>);
@@ -269,20 +268,20 @@ private:
                 max[0] = std::max(point.x, max[0]);
                 max[1] = std::max(point.y, max[1]);
             }
-            ROS_ERROR(this->get_logger(), "Min = %f, %f, Width = %f", min[0], min[1], max[0] - min[0]);
-            ROS_ERROR(this->get_logger(), "Max = %f, %f, Height = %f", max[0], max[1], max[1] - min[1]);
+            ROS_ERROR_STREAM("Min = "+ std::to_string(min[0]) +", " + std::to_string(min[1]) + ", Width = " + std::to_string(max[0] - min[0]));
+            ROS_ERROR_STREAM("Max = " + std::to_string(max[0]) + ", " + std::to_string(max[1]) + ", Height = " + std::to_string(max[1] - min[1]));
 
             // Bounds check the size of the box
             if (std::abs((max[0] - min[0]) - _box_width) > _width_tolerence &&
                 std::abs((max[1] - min[1]) - _box_height) > _height_tolerence) {
-                ROS_ERROR(this->get_logger(), "Obstacle Failed Bounds Check, Continuing to next cluster");
+                ROS_ERROR_STREAM("Obstacle Failed Bounds Check, Continuing to next cluster");
                 continue;
             }
 
             *obstaclePoints = *obstacleCluster;
 
             Eigen::Vector3f center = pca.getMean().head(3);
-            ROS_ERROR(this->get_logger(), "Center = %f, %f, %f", center[0], center[1], center[2]);
+            ROS_ERROR_STREAM("Center = "+ std::to_string(center[0]) +", " + std::to_string(center[1])+", " + std::to_string(center[2]));
 
             boxCenterKartFrame = center;
 
@@ -298,9 +297,10 @@ private:
 
 int main(int argc, char * argv[])
 {
-    ros::init(argc, argv);
+    ros::init(argc, argv, "planar_filter");
     //rclcpp::spin(std::make_shared<MinimalPublisher>());
-    ros::spin(std::make_shared<PlanarFilter>());
+    auto planarFilter = PlanarFilter();
+    ros::spin();
     ros::shutdown();
     return 0;
 }
